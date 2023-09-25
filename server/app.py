@@ -38,39 +38,6 @@ class Signup(Resource):
 
         return user.to_dict(), 201
         
-
-# BEGIN SIGN UP ORIGINAL WORK
-    # def post(self):
-    #     request_json = request.get_json()
-
-    #     username = request_json.get('username')
-    #     password = request_json.get('password')
-    #     image_url = request_json.get('image_url')
-    #     bio = request_json.get('bio')
-
-    #     user = User(
-    #         username=username,
-    #         image_url=image_url,
-    #         bio=bio
-    #     )
-    #     user.password_hash = password
-
-    #     try:
-    #         print('here!')
-
-    #         db.session.add(user)
-    #         db.session.commit()
-
-    #         session['user_id'] = user.id
-
-    #         print(user.to_dict())
-
-    #         return user.to_dict(), 201
-    #     except IntegrityError:
-    #         print('no, here!')
-
-    #         return {'error': '422 Unprocessable Entity'}, 422
-# END SIGN UP ORIGINAL WORK
 class CheckSession(Resource):
     def get(self):
         if session.get('user_id'):
@@ -109,81 +76,38 @@ class Logout(Resource):
         
         return {'error': '401 Unauthorized'}, 401
 
+
+# START OF LATEST
 class RecipeIndex(Resource):
     def get(self):
-
-        if session.get('user_id'):
-
-            user = User.query.filter(User.id == session['user_id']).first()
-
-            return [recipe.to_dict() for recipe in user.recipes], 200
+        if not session['user_id']:
+            return ({"error":"unauthorized"}, 401)
+        else:
+            user_id = session['user_id']
+            recipes = [recipe.to_dict() for recipe in Recipe.query.filter(Recipe.user_id == user_id).all()]
+            return recipes, 200
         
-        return {'error': '401 Unauthorized'}, 401
-    
+    def post(self):
+        json = request.get_json()
+        if not session.get('user_id'):
+            return ({"error":"unauthorized"}, 401)
+        else:
+            try:
+                new_recipe = Recipe(
+                    title = json['title'],
+                    instructions = json['instructions'],
+                    minutes_to_complete = json['minutes_to_complete'],
+                    user_id = session['user_id'],
+                    )
+            
+                db.session.add(new_recipe)
+                db.session.commit()
+                return new_recipe.to_dict(), 201
+            except IntegrityError as e:
+                db.session.rollback()
+                return ({"error":"unprocessable entity"}, 422)
+# END OF LATEST
 
-def post(self):
-
-    user_id = session.get('user_id')
-
-    if not user_id:
-        return ({'message': 'Unauthorized'}), 401
-
-    user = User.query.get(user_id)
-
-    if not user:
-        return ({'message': 'User not found'}), 404
-
-    data = request.get_json()
-
-    title = data.get('title')
-    instructions = data.get('instructions')
-    minutes_to_complete = data.get('minutes_to_complete')
-
-    if not title or not instructions or not minutes_to_complete:
-        return ({'message': 'Unprocessable Entity'}), 422
-
-    new_recipe = Recipe(
-        user_id=user.id,
-        title=title,
-        instructions=instructions,
-        minutes_to_complete=minutes_to_complete
-    )
-
-    db.session.add(new_recipe)
-    db.session.commit()
-
-    #recipe_dict = new_recipe.to_dict(only=('title', 'instructions', 'minutes_to_complete'))
-
-    return new_recipe.to_dict(), 201
-
-# BEGIN OF OLD RECIPE CREATION WORK
-        # if session.get('user_id'):
-
-        #     request_json = request.get_json()
-
-        #     title = request_json['title']
-        #     instructions = request_json['instructions']
-        #     minutes_to_complete = request_json['minutes_to_complete']
-
-        #     try:
-
-        #         recipe = Recipe(
-        #             title=title,
-        #             instructions=instructions,
-        #             minutes_to_complete=minutes_to_complete,
-        #             user_id=session['user_id'],
-        #         )
-
-        #         db.session.add(recipe)
-        #         db.session.commit()
-
-        #         return recipe.to_dict(), 201
-        #     except IntegrityError:
-
-        #         return {'error': '422 Unprocessable Entity'}, 422
-
-        # return {'error': '401 Unauthorized'}, 401
-# END OF OLD RECIPE CREATION WORK
 api.add_resource(Signup, '/signup', endpoint='signup')
 api.add_resource(CheckSession, '/check_session', endpoint='check_session')
 api.add_resource(Login, '/login', endpoint='login')
